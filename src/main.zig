@@ -169,15 +169,10 @@ test "pull from headers" {
 test "get the tail from here" {
     const haystack = "https://ziglang.org/builds/zig-linux-x86_64-0.11.0-dev.4003+c6aa29b6f.tar.xz";
     const needle = "builds/";
-    const found = tailAfterNeedle(u8, haystack, needle).?;
+    const found = tailAfterNeedle(u8, haystack, needle);
 
     try expectEqualStrings(
         "zig-linux-x86_64-0.11.0-dev.4003+c6aa29b6f.tar.xz",
         found,
     );
-
-    const bad_needle = "foo";
-    const bad_found = tailAfterNeedle(u8, haystack, bad_needle);
-
-    try std.testing.expect(bad_found == null);
 }
