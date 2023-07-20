@@ -1,4 +1,5 @@
 const std = @import("std");
+const process = @import("process.zig");
 const config = @import("config.zig").config;
 
 const json = std.json;
@@ -15,6 +16,10 @@ pub const Tarball = struct {
     uri: std.Uri,
     name: []const u8,
     short_name: []const u8,
+    export_line: []u8,
+    zigrc: []const u8,
+    install_dir: []const u8,
+    data: ?[]u8,
     allocator: std.mem.Allocator,
     client: *std.http.Client,
 
@@ -24,28 +29,35 @@ pub const Tarball = struct {
             panic("Could not parse taball uri from {s}: {any}", .{ uri_str, err });
         const name = tailAfterNeedle(u8, uri_str);
         const short_name = name[0 .. name.len - 7];
+        const export_line = std.fmt.allocPrint(allocator, "{s}{s}/{s}", .{
+            config.ZIG_NIGHTLY_PATH,
+            config.ZIG_INSTALLS_DIR,
+            short_name,
+        }) catch |err| {
+            panic("could not create export line for {s}: {any}", .{ short_name, err });
+        };
         return Self{
             .uri_str = uri_str,
             .uri = uri,
             .name = name,
             .short_name = short_name,
+            .export_line = export_line,
+            .zigrc = config.ZIGRC,
+            .install_dir = config.ZIG_INSTALLS_DIR,
             .allocator = allocator,
             .client = client,
         };
     }
 
-    pub fn fetch(self: Self) void {
-        fetchTarball(self.allocator, self.client, self.uri, self.name);
+    pub fn fetch(self: *Self) void {
+        const data = fetchData(self.allocator, self.client, self.uri);
+        self.data = data;
     }
 
     pub fn systemHasLatest(self: Self) bool {
         return latestVersionInstalled(self.short_name) catch |err| {
             panic("unable to inspect system for existing install: {any}", .{err});
         };
-    }
-
-    pub fn updateZigrc(self: Self) void {
-        createExportLine(self.allocator, self.short_name);
     }
 };
 
@@ -80,7 +92,7 @@ fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client) []u8 
 
 fn fetchTarball(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri, name: []const u8) void {
     const tarball_data = fetchData(allocator, client, uri);
-    writeToFile(tarball_data, name);
+    process.writeToFile(tarball_data, name);
 }
 
 fn fetchData(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri) []u8 {
@@ -113,18 +125,6 @@ fn fetchData(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Ur
     };
 }
 
-fn createExportLine(allocator: std.mem.Allocator, dir_name: []const u8) void {
-    var export_line = std.fmt.allocPrint(allocator, "{s}{s}/{s}", .{
-        config.ZIG_NIGHTLY_PATH,
-        config.ZIG_INSTALLS_DIR,
-        dir_name,
-    }) catch |err| {
-        panic("could not create export line for {s}: {any}", .{ dir_name, err });
-    };
-    log.info("created export line {s}", .{export_line});
-    writeToFile(export_line, config.ZIGRC);
-}
-
 fn latestVersionInstalled(latest: []const u8) !bool {
     log.info("checking for local install of latest {s}", .{latest});
     var iter_installs = try std.fs.openIterableDirAbsolute(config.ZIG_INSTALLS_DIR, .{});
@@ -146,20 +146,6 @@ fn tailAfterNeedle(comptime T: type, haystack: []const T) []const T {
         haystack[idx + config.NEEDLE.len ..]
     else
         panic("could not find {s} in {s}", .{ config.NEEDLE, haystack });
-}
-
-fn writeToFile(data: []u8, filename: []const u8) void {
-    log.info("writing data to {s}", .{filename});
-    const file = std.fs.cwd().createFile(
-        filename,
-        .{ .read = true },
-    ) catch |err| {
-        panic("could not create file {s}: {any}", .{ filename, err });
-    };
-    defer file.close();
-
-    file.writeAll(data) catch |err|
-        panic("could not write out data: {any}", .{err});
 }
 
 test "parse nested json values" {

@@ -1,10 +1,9 @@
 const std = @import("std");
+
 const log = std.log;
 const panic = std.debug.panic;
 
-const config = @import("config.zig").config;
-
-pub const Process = enum { unzip, move, cleanup_file, cleanup_directory, create_file };
+pub const Process = enum { unzip, move, cleanup_file, cleanup_directory, write_to_file };
 
 pub fn CommandRunner() type {
     return struct {
@@ -14,7 +13,7 @@ pub fn CommandRunner() type {
 
         pub fn run(self: Self, allocator: std.mem.Allocator) void {
             for (self.commands) |command| {
-                processCommand(command.p, command.arg, allocator, null);
+                processCommand(command.p, command.arg, allocator, command.data, command.dest);
             }
         }
     };
@@ -24,14 +23,20 @@ pub const RunCommand = struct {
     const Self = @This();
     p: Process,
     arg: []const u8,
+    data: ?[]u8,
+    dest: ?[]const u8,
 
-    pub fn create(prc: Process, arg: []const u8) Self {
-        return Self{ .p = prc, .arg = arg };
+    pub fn create(prc: Process, arg: []const u8, data: ?[]u8, dest: ?[]const u8) Self {
+        return Self{
+            .p = prc,
+            .arg = arg,
+            .data = data,
+            .dest = dest,
+        };
     }
 };
 
-pub fn processCommand(process: Process, filename: []const u8, allocator: std.mem.Allocator, data: ?[]u8) void {
-    _ = data;
+pub fn processCommand(process: Process, filename: []const u8, allocator: std.mem.Allocator, data: ?[]u8, dest: ?[]const u8) void {
     switch (process) {
         .unzip => {
             var unzip = [_][]const u8{
@@ -45,7 +50,7 @@ pub fn processCommand(process: Process, filename: []const u8, allocator: std.mem
             var move = [_][]const u8{
                 "mv",
                 filename,
-                config.ZIG_INSTALLS_DIR,
+                dest orelse panic("no destination passed for move command", .{}),
             };
             runProcess(allocator, &move, "move");
         },
@@ -64,8 +69,8 @@ pub fn processCommand(process: Process, filename: []const u8, allocator: std.mem
             };
             runProcess(allocator, &cleanup, "cleanup directory");
         },
-        .create_file => {
-            panic("unsupported operation", .{});
+        .update_file => {
+            writeToFile(data orelse panic("no data passed to write to file command", .{}), filename);
         },
     }
 }

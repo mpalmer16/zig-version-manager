@@ -1,10 +1,8 @@
 const std = @import("std");
 const process = @import("process.zig");
-
 const Tarball = @import("tarball.zig").Tarball;
 
 const log = std.log;
-
 const create = process.RunCommand.create;
 
 pub fn main() !void {
@@ -18,18 +16,18 @@ pub fn main() !void {
 
     if (tarball.systemHasLatest()) {
         log.info("system already has latest - nothing left to do", .{});
-        tarball.updateZigrc();
     } else {
         log.info("system does not have latest...fetching and installing", .{});
         tarball.fetch();
         var commands = [_]process.RunCommand{
-            create(.unzip, tarball.name),
-            create(.move, tarball.short_name),
-            create(.cleanup_file, tarball.name),
-            create(.cleanup_directory, tarball.short_name),
+            create(.write_to_file, tarball.name, tarball.data, null),
+            create(.unzip, tarball.name, null, null),
+            create(.move, tarball.short_name, null, tarball.install_dir),
+            create(.cleanup_file, tarball.name, null, null),
+            create(.cleanup_directory, tarball.short_name, null, null),
+            create(.write_to_file, tarball.zigrc, tarball.export_line, null),
         };
         const cr = process.CommandRunner(){ .commands = &commands };
         cr.run(allocator);
-        tarball.updateZigrc();
     }
 }
