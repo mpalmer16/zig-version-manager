@@ -26,7 +26,7 @@ pub const RunCommand = struct {
     data: ?[]u8,
     dest: ?[]const u8,
 
-    pub fn create(prc: Process, arg: []const u8, data: ?[]u8, dest: ?[]const u8) Self {
+    pub fn command(prc: Process, arg: []const u8, data: ?[]u8, dest: ?[]const u8) Self {
         return Self{
             .p = prc,
             .arg = arg,
@@ -69,7 +69,7 @@ pub fn processCommand(process: Process, filename: []const u8, allocator: std.mem
             };
             runProcess(allocator, &cleanup, "cleanup directory");
         },
-        .update_file => {
+        .write_to_file => {
             writeToFile(data orelse panic("no data passed to write to file command", .{}), filename);
         },
     }

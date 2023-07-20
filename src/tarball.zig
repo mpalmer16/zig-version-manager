@@ -1,5 +1,4 @@
 const std = @import("std");
-const process = @import("process.zig");
 const config = @import("config.zig").config;
 
 const json = std.json;
@@ -19,7 +18,7 @@ pub const Tarball = struct {
     export_line: []u8,
     zigrc: []const u8,
     install_dir: []const u8,
-    data: ?[]u8,
+    data: *const fn (Tarball) []u8,
     allocator: std.mem.Allocator,
     client: *std.http.Client,
 
@@ -43,21 +42,21 @@ pub const Tarball = struct {
             .short_name = short_name,
             .export_line = export_line,
             .zigrc = config.ZIGRC,
+            .data = internalFetch,
             .install_dir = config.ZIG_INSTALLS_DIR,
             .allocator = allocator,
             .client = client,
         };
     }
 
-    pub fn fetch(self: *Self) void {
-        const data = fetchData(self.allocator, self.client, self.uri);
-        self.data = data;
-    }
-
     pub fn systemHasLatest(self: Self) bool {
         return latestVersionInstalled(self.short_name) catch |err| {
             panic("unable to inspect system for existing install: {any}", .{err});
         };
+    }
+
+    fn internalFetch(self: Self) []u8 {
+        return fetchData(self.allocator, self.client, self.uri);
     }
 };
 
@@ -88,11 +87,6 @@ fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client) []u8 
     } else {
         panic("version {s} not found", .{config.ZIG_VERSION});
     };
-}
-
-fn fetchTarball(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri, name: []const u8) void {
-    const tarball_data = fetchData(allocator, client, uri);
-    process.writeToFile(tarball_data, name);
 }
 
 fn fetchData(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri) []u8 {

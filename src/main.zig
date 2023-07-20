@@ -3,7 +3,8 @@ const process = @import("process.zig");
 const Tarball = @import("tarball.zig").Tarball;
 
 const log = std.log;
-const create = process.RunCommand.create;
+const RunCommand = process.RunCommand;
+const command = RunCommand.command;
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -18,14 +19,13 @@ pub fn main() !void {
         log.info("system already has latest - nothing left to do", .{});
     } else {
         log.info("system does not have latest...fetching and installing", .{});
-        tarball.fetch();
-        var commands = [_]process.RunCommand{
-            create(.write_to_file, tarball.name, tarball.data, null),
-            create(.unzip, tarball.name, null, null),
-            create(.move, tarball.short_name, null, tarball.install_dir),
-            create(.cleanup_file, tarball.name, null, null),
-            create(.cleanup_directory, tarball.short_name, null, null),
-            create(.write_to_file, tarball.zigrc, tarball.export_line, null),
+        var commands = [_]RunCommand{
+            command(.write_to_file, tarball.name, tarball.data(tarball), null),
+            command(.unzip, tarball.name, null, null),
+            command(.move, tarball.short_name, null, tarball.install_dir),
+            command(.cleanup_file, tarball.name, null, null),
+            command(.cleanup_directory, tarball.short_name, null, null),
+            command(.write_to_file, tarball.zigrc, tarball.export_line, null),
         };
         const cr = process.CommandRunner(){ .commands = &commands };
         cr.run(allocator);
