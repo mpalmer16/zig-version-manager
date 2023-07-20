@@ -4,9 +4,9 @@ const panic = std.debug.panic;
 
 const config = @import("config.zig");
 
-const Process = enum { unzip, move, cleanup_file, cleanup_directory };
+pub const Process = enum { unzip, move, cleanup_file, cleanup_directory };
 
-pub fn run(process: Process, filename: []const u8, allocator: std.mem.Allocator) !void {
+pub fn run(process: Process, filename: []const u8, allocator: std.mem.Allocator) void {
     switch (process) {
         .unzip => {
             var unzip = [_][]const u8{
@@ -14,7 +14,7 @@ pub fn run(process: Process, filename: []const u8, allocator: std.mem.Allocator)
                 "-xf",
                 filename,
             };
-            try runProcess(allocator, &unzip, "unzip");
+            runProcess(allocator, &unzip, "unzip");
         },
         .move => {
             var move = [_][]const u8{
@@ -22,14 +22,14 @@ pub fn run(process: Process, filename: []const u8, allocator: std.mem.Allocator)
                 filename,
                 config.ZIG_INSTALLS_DIR,
             };
-            try runProcess(allocator, &move, "move");
+            runProcess(allocator, &move, "move");
         },
         .cleanup_file => {
             var cleanup = [_][]const u8{
                 "rm",
                 filename,
             };
-            try runProcess(allocator, &cleanup, "cleanup file");
+            runProcess(allocator, &cleanup, "cleanup file");
         },
         .cleanup_directory => {
             var cleanup = [_][]const u8{
@@ -37,7 +37,7 @@ pub fn run(process: Process, filename: []const u8, allocator: std.mem.Allocator)
                 "-rf",
                 filename,
             };
-            try runProcess(allocator, &cleanup, "cleanup directory");
+            runProcess(allocator, &cleanup, "cleanup directory");
         },
     }
 }
@@ -46,10 +46,12 @@ fn runProcess(
     allocator: std.mem.Allocator,
     commands: [][]const u8,
     command_name: []const u8,
-) !void {
+) void {
     log.info("running command {s}", .{command_name});
     var process = std.ChildProcess.init(commands, allocator);
-    var term = try process.spawnAndWait();
+    var term = process.spawnAndWait() catch |err| {
+        panic("could not spawn child process for command {s}: {any}", .{ command_name, err });
+    };
     switch (term) {
         std.ChildProcess.Term.Exited => log.info("{s} completed!", .{command_name}),
         else => panic("could not run command {s}", .{command_name}),
