@@ -2,11 +2,36 @@ const std = @import("std");
 const log = std.log;
 const panic = std.debug.panic;
 
-const config = @import("config.zig");
+const config = @import("config.zig").config;
 
-pub const Process = enum { unzip, move, cleanup_file, cleanup_directory };
+pub const Process = enum { unzip, move, cleanup_file, cleanup_directory, create_file };
 
-pub fn run(process: Process, filename: []const u8, allocator: std.mem.Allocator) void {
+pub fn CommandRunner() type {
+    return struct {
+        const Self = @This();
+
+        commands: []RunCommand,
+
+        pub fn run(self: Self, allocator: std.mem.Allocator) void {
+            for (self.commands) |command| {
+                processCommand(command.p, command.arg, allocator, null);
+            }
+        }
+    };
+}
+
+pub const RunCommand = struct {
+    const Self = @This();
+    p: Process,
+    arg: []const u8,
+
+    pub fn create(prc: Process, arg: []const u8) Self {
+        return Self{ .p = prc, .arg = arg };
+    }
+};
+
+pub fn processCommand(process: Process, filename: []const u8, allocator: std.mem.Allocator, data: ?[]u8) void {
+    _ = data;
     switch (process) {
         .unzip => {
             var unzip = [_][]const u8{
@@ -39,6 +64,9 @@ pub fn run(process: Process, filename: []const u8, allocator: std.mem.Allocator)
             };
             runProcess(allocator, &cleanup, "cleanup directory");
         },
+        .create_file => {
+            panic("unsupported operation", .{});
+        },
     }
 }
 
@@ -56,4 +84,18 @@ fn runProcess(
         std.ChildProcess.Term.Exited => log.info("{s} completed!", .{command_name}),
         else => panic("could not run command {s}", .{command_name}),
     }
+}
+
+pub fn writeToFile(data: []u8, filename: []const u8) void {
+    log.info("writing data to {s}", .{filename});
+    const file = std.fs.cwd().createFile(
+        filename,
+        .{ .read = true },
+    ) catch |err| {
+        panic("could not create file {s}: {any}", .{ filename, err });
+    };
+    defer file.close();
+
+    file.writeAll(data) catch |err|
+        panic("could not write out data: {any}", .{err});
 }

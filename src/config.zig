@@ -1,10 +1,12 @@
-pub const VERSION_INFO_URI = "https://ziglang.org/download/index.json";
-pub const NEEDLE = "builds/";
+pub const config = .{
+    .VERSION_INFO_URI = "https://ziglang.org/download/index.json",
+    .NEEDLE = "builds/",
 
-pub const ZIG_VERSION = "master";
-pub const OS_ARCH = "x86_64-linux";
-pub const TARBALL = "tarball";
+    .ZIG_VERSION = "master",
+    .OS_ARCH = "x86_64-linux",
+    .TARBALL = "tarball",
 
-pub const ZIG_INSTALLS_DIR = "/root/.zig/installs";
-pub const ZIG_NIGHTLY_PATH = "export ZIG_NIGHTLY_PATH=";
-pub const ZIGRC = "/root/.zig/.zigrc";
+    .ZIG_INSTALLS_DIR = "/root/.zig/installs",
+    .ZIG_NIGHTLY_PATH = "export ZIG_NIGHTLY_PATH=",
+    .ZIGRC = "/root/.zig/.zigrc",
+};

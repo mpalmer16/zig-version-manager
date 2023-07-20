@@ -1,6 +1,5 @@
 const std = @import("std");
-const config = @import("config.zig");
-const process = @import("process.zig");
+const config = @import("config.zig").config;
 
 const json = std.json;
 const panic = std.debug.panic;
@@ -9,31 +8,10 @@ const log = std.log;
 const expectEqualSlices = std.testing.expectEqualSlices;
 const expectEqualStrings = std.testing.expectEqualStrings;
 
-pub fn CommandRunner() type {
-    return struct {
-        const Self = @This();
+pub fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client) []u8 {
+    const uri = std.Uri.parse(config.VERSION_INFO_URI) catch |err|
+        panic("could not parse uri: {any}", .{err});
 
-        commands: []RunCommand,
-
-        pub fn run(self: Self, allocator: std.mem.Allocator) void {
-            for (self.commands) |command| {
-                process.run(command.p, command.arg, allocator);
-            }
-        }
-    };
-}
-
-pub const RunCommand = struct {
-    const Self = @This();
-    p: process.Process,
-    arg: []const u8,
-
-    pub fn create(prc: process.Process, arg: []const u8) Self {
-        return Self{ .p = prc, .arg = arg };
-    }
-};
-
-pub fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri) []u8 {
     const version_info = fetchData(allocator, client, uri);
     defer allocator.free(version_info);
 
@@ -57,6 +35,11 @@ pub fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client, u
     } else {
         panic("version {s} not found", .{config.ZIG_VERSION});
     };
+}
+
+pub fn fetchTarball(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri, name: []const u8) void {
+    const tarball_data = fetchData(allocator, client, uri);
+    writeToFile(tarball_data, name);
 }
 
 pub fn fetchData(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri) []u8 {
@@ -89,7 +72,7 @@ pub fn fetchData(allocator: std.mem.Allocator, client: *std.http.Client, uri: st
     };
 }
 
-pub fn createExportLine(allocator: std.mem.Allocator, dir_name: []const u8) []u8 {
+pub fn createExportLine(allocator: std.mem.Allocator, dir_name: []const u8) void {
     var export_line = std.fmt.allocPrint(allocator, "{s}{s}/{s}", .{
         config.ZIG_NIGHTLY_PATH,
         config.ZIG_INSTALLS_DIR,
@@ -98,12 +81,12 @@ pub fn createExportLine(allocator: std.mem.Allocator, dir_name: []const u8) []u8
         panic("could not create export line for {s}: {any}", .{ dir_name, err });
     };
     log.info("created export line {s}", .{export_line});
-    return export_line;
+    writeToFile(export_line, config.ZIGRC);
 }
 
-pub fn latestVersionInstalled(install_dir: []const u8, latest: []const u8) !bool {
+pub fn latestVersionInstalled(latest: []const u8) !bool {
     log.info("checking for local install of latest {s}", .{latest});
-    var iter_installs = try std.fs.openIterableDirAbsolute(install_dir, .{});
+    var iter_installs = try std.fs.openIterableDirAbsolute(config.ZIG_INSTALLS_DIR, .{});
     defer iter_installs.close();
 
     var iter = iter_installs.iterate();
@@ -117,11 +100,11 @@ pub fn latestVersionInstalled(install_dir: []const u8, latest: []const u8) !bool
     return false;
 }
 
-pub fn tailAfterNeedle(comptime T: type, haystack: []const T, needle: []const T) []const T {
-    return if (std.mem.indexOf(u8, haystack, needle)) |idx|
-        haystack[idx + needle.len ..]
+pub fn tailAfterNeedle(comptime T: type, haystack: []const T) []const T {
+    return if (std.mem.indexOf(u8, haystack, config.NEEDLE)) |idx|
+        haystack[idx + config.NEEDLE.len ..]
     else
-        panic("could not find {s} in {s}", .{ needle, haystack });
+        panic("could not find {s} in {s}", .{ config.NEEDLE, haystack });
 }
 
 pub fn writeToFile(data: []u8, filename: []const u8) void {
