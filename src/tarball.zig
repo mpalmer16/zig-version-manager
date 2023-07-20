@@ -8,7 +8,48 @@ const log = std.log;
 const expectEqualSlices = std.testing.expectEqualSlices;
 const expectEqualStrings = std.testing.expectEqualStrings;
 
-pub fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client) []u8 {
+pub const Tarball = struct {
+    const Self = @This();
+
+    uri_str: []const u8,
+    uri: std.Uri,
+    name: []const u8,
+    short_name: []const u8,
+    allocator: std.mem.Allocator,
+    client: *std.http.Client,
+
+    pub fn new(allocator: std.mem.Allocator, client: *std.http.Client) Self {
+        const uri_str = parseTarballStr(allocator, client);
+        const uri = std.Uri.parse(uri_str) catch |err|
+            panic("Could not parse taball uri from {s}: {any}", .{ uri_str, err });
+        const name = tailAfterNeedle(u8, uri_str);
+        const short_name = name[0 .. name.len - 7];
+        return Self{
+            .uri_str = uri_str,
+            .uri = uri,
+            .name = name,
+            .short_name = short_name,
+            .allocator = allocator,
+            .client = client,
+        };
+    }
+
+    pub fn fetch(self: Self) void {
+        fetchTarball(self.allocator, self.client, self.uri, self.name);
+    }
+
+    pub fn systemHasLatest(self: Self) bool {
+        return latestVersionInstalled(self.short_name) catch |err| {
+            panic("unable to inspect system for existing install: {any}", .{err});
+        };
+    }
+
+    pub fn updateZigrc(self: Self) void {
+        createExportLine(self.allocator, self.short_name);
+    }
+};
+
+fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client) []u8 {
     const uri = std.Uri.parse(config.VERSION_INFO_URI) catch |err|
         panic("could not parse uri: {any}", .{err});
 
@@ -37,12 +78,12 @@ pub fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client) [
     };
 }
 
-pub fn fetchTarball(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri, name: []const u8) void {
+fn fetchTarball(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri, name: []const u8) void {
     const tarball_data = fetchData(allocator, client, uri);
     writeToFile(tarball_data, name);
 }
 
-pub fn fetchData(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri) []u8 {
+fn fetchData(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri) []u8 {
     log.info("fetching {any}", .{uri});
     var headers = std.http.Headers{ .allocator = allocator };
     defer headers.deinit();
@@ -72,7 +113,7 @@ pub fn fetchData(allocator: std.mem.Allocator, client: *std.http.Client, uri: st
     };
 }
 
-pub fn createExportLine(allocator: std.mem.Allocator, dir_name: []const u8) void {
+fn createExportLine(allocator: std.mem.Allocator, dir_name: []const u8) void {
     var export_line = std.fmt.allocPrint(allocator, "{s}{s}/{s}", .{
         config.ZIG_NIGHTLY_PATH,
         config.ZIG_INSTALLS_DIR,
@@ -84,7 +125,7 @@ pub fn createExportLine(allocator: std.mem.Allocator, dir_name: []const u8) void
     writeToFile(export_line, config.ZIGRC);
 }
 
-pub fn latestVersionInstalled(latest: []const u8) !bool {
+fn latestVersionInstalled(latest: []const u8) !bool {
     log.info("checking for local install of latest {s}", .{latest});
     var iter_installs = try std.fs.openIterableDirAbsolute(config.ZIG_INSTALLS_DIR, .{});
     defer iter_installs.close();
@@ -100,14 +141,14 @@ pub fn latestVersionInstalled(latest: []const u8) !bool {
     return false;
 }
 
-pub fn tailAfterNeedle(comptime T: type, haystack: []const T) []const T {
+fn tailAfterNeedle(comptime T: type, haystack: []const T) []const T {
     return if (std.mem.indexOf(u8, haystack, config.NEEDLE)) |idx|
         haystack[idx + config.NEEDLE.len ..]
     else
         panic("could not find {s} in {s}", .{ config.NEEDLE, haystack });
 }
 
-pub fn writeToFile(data: []u8, filename: []const u8) void {
+fn writeToFile(data: []u8, filename: []const u8) void {
     log.info("writing data to {s}", .{filename});
     const file = std.fs.cwd().createFile(
         filename,
@@ -162,20 +203,4 @@ test "get the tail from here" {
         "zig-linux-x86_64-0.11.0-dev.4003+c6aa29b6f.tar.xz",
         found,
     );
-}
-
-const SomeStruct = struct {
-    value: i32,
-};
-fn someFunc(ss: []SomeStruct) !void {
-    for (ss) |s| {
-        try std.testing.expect(@TypeOf(s.value) == i32);
-    }
-}
-
-test "pass array to function" {
-    var ss = [_]SomeStruct{SomeStruct{
-        .value = 123,
-    }};
-    try someFunc(&ss);
 }
