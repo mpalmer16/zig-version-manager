@@ -8,11 +8,11 @@ const log = std.log;
 const expectEqualSlices = std.testing.expectEqualSlices;
 const expectEqualStrings = std.testing.expectEqualStrings;
 
-pub const Tarball = struct {
+pub const Context = struct {
     const Self = @This();
 
-    uri_str: []const u8,
-    uri: std.Uri,
+    tarball_uri_str: []const u8,
+    tarball_uri: std.Uri,
     name: []const u8,
     short_name: []const u8,
     export_line: []const u8,
@@ -23,15 +23,15 @@ pub const Tarball = struct {
 
     pub fn new(allocator: std.mem.Allocator, client: *std.http.Client) Self {
         const versions_uri = parseUri(config.VERSION_INFO_URI);
-        const uri_str = parseTarballStr(allocator, client, versions_uri);
-        const uri = parseUri(uri_str);
-        const name = tailAfterNeedle(u8, uri_str);
+        const tarball_uri_str = parseTarballStr(allocator, client, versions_uri);
+        const tarball_uri = parseUri(tarball_uri_str);
+        const name = tailAfterNeedle(u8, tarball_uri_str);
         const short_name = name[0 .. name.len - 7];
         const export_line = createExportLine(allocator, short_name);
 
         return Self{
-            .uri_str = uri_str,
-            .uri = uri,
+            .tarball_uri_str = tarball_uri_str,
+            .tarball_uri = tarball_uri,
             .name = name,
             .short_name = short_name,
             .export_line = export_line,
@@ -49,7 +49,7 @@ pub const Tarball = struct {
     }
 
     pub fn fetch(self: Self) []const u8 {
-        return fetchData(self.allocator, self.client, self.uri);
+        return fetchData(self.allocator, self.client, self.tarball_uri);
     }
 };
 
