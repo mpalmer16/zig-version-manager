@@ -23,10 +23,10 @@ pub const RunCommand = struct {
     const Self = @This();
     p: Process,
     arg: []const u8,
-    data: ?[]u8,
+    data: ?[]const u8,
     dest: ?[]const u8,
 
-    pub fn command(prc: Process, arg: []const u8, data: ?[]u8, dest: ?[]const u8) Self {
+    pub fn command(prc: Process, arg: []const u8, data: ?[]const u8, dest: ?[]const u8) Self {
         return Self{
             .p = prc,
             .arg = arg,
@@ -36,7 +36,7 @@ pub const RunCommand = struct {
     }
 };
 
-pub fn processCommand(process: Process, filename: []const u8, allocator: std.mem.Allocator, data: ?[]u8, dest: ?[]const u8) void {
+fn processCommand(process: Process, filename: []const u8, allocator: std.mem.Allocator, data: ?[]const u8, dest: ?[]const u8) void {
     switch (process) {
         .unzip => {
             var unzip = [_][]const u8{
@@ -70,7 +70,7 @@ pub fn processCommand(process: Process, filename: []const u8, allocator: std.mem
             runProcess(allocator, &cleanup, "cleanup directory");
         },
         .write_to_file => {
-            writeToFile(data orelse panic("no data passed to write to file command", .{}), filename);
+            writeToFile(data.?, filename);
         },
     }
 }
@@ -91,7 +91,7 @@ fn runProcess(
     }
 }
 
-pub fn writeToFile(data: []u8, filename: []const u8) void {
+fn writeToFile(data: []const u8, filename: []const u8) void {
     log.info("writing data to {s}", .{filename});
     const file = std.fs.cwd().createFile(
         filename,

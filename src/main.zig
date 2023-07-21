@@ -20,7 +20,7 @@ pub fn main() !void {
     } else {
         log.info("system does not have latest...fetching and installing", .{});
         var commands = [_]RunCommand{
-            command(.write_to_file, tarball.name, tarball.data(tarball), null),
+            command(.write_to_file, tarball.name, tarball.fetch(), null),
             command(.unzip, tarball.name, null, null),
             command(.move, tarball.short_name, null, tarball.install_dir),
             command(.cleanup_file, tarball.name, null, null),

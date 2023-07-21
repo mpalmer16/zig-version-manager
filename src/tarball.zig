@@ -15,26 +15,20 @@ pub const Tarball = struct {
     uri: std.Uri,
     name: []const u8,
     short_name: []const u8,
-    export_line: []u8,
+    export_line: []const u8,
     zigrc: []const u8,
     install_dir: []const u8,
-    data: *const fn (Tarball) []u8,
     allocator: std.mem.Allocator,
     client: *std.http.Client,
 
     pub fn new(allocator: std.mem.Allocator, client: *std.http.Client) Self {
-        const uri_str = parseTarballStr(allocator, client);
-        const uri = std.Uri.parse(uri_str) catch |err|
-            panic("Could not parse taball uri from {s}: {any}", .{ uri_str, err });
+        const versions_uri = parseUri(config.VERSION_INFO_URI);
+        const uri_str = parseTarballStr(allocator, client, versions_uri);
+        const uri = parseUri(uri_str);
         const name = tailAfterNeedle(u8, uri_str);
         const short_name = name[0 .. name.len - 7];
-        const export_line = std.fmt.allocPrint(allocator, "{s}{s}/{s}", .{
-            config.ZIG_NIGHTLY_PATH,
-            config.ZIG_INSTALLS_DIR,
-            short_name,
-        }) catch |err| {
-            panic("could not create export line for {s}: {any}", .{ short_name, err });
-        };
+        const export_line = createExportLine(allocator, short_name);
+
         return Self{
             .uri_str = uri_str,
             .uri = uri,
@@ -42,7 +36,6 @@ pub const Tarball = struct {
             .short_name = short_name,
             .export_line = export_line,
             .zigrc = config.ZIGRC,
-            .data = internalFetch,
             .install_dir = config.ZIG_INSTALLS_DIR,
             .allocator = allocator,
             .client = client,
@@ -55,15 +48,28 @@ pub const Tarball = struct {
         };
     }
 
-    fn internalFetch(self: Self) []u8 {
+    pub fn fetch(self: Self) []const u8 {
         return fetchData(self.allocator, self.client, self.uri);
     }
 };
 
-fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client) []u8 {
-    const uri = std.Uri.parse(config.VERSION_INFO_URI) catch |err|
-        panic("could not parse uri: {any}", .{err});
+fn createExportLine(allocator: std.mem.Allocator, short_name: []const u8) []const u8 {
+    return std.fmt.allocPrint(allocator, "{s}{s}/{s}", .{
+        config.ZIG_NIGHTLY_PATH,
+        config.ZIG_INSTALLS_DIR,
+        short_name,
+    }) catch |err| {
+        panic("could not create export line for {s}: {any}", .{ short_name, err });
+    };
+}
 
+fn parseUri(str: []const u8) std.Uri {
+    return std.Uri.parse(str) catch |err| {
+        panic("Could not parse uri from {s}: {any}", .{ str, err });
+    };
+}
+
+fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri) []u8 {
     const version_info = fetchData(allocator, client, uri);
     defer allocator.free(version_info);
 
@@ -89,7 +95,7 @@ fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client) []u8 
     };
 }
 
-fn fetchData(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri) []u8 {
+fn fetchData(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri) []const u8 {
     log.info("fetching {any}", .{uri});
     var headers = std.http.Headers{ .allocator = allocator };
     defer headers.deinit();
@@ -176,8 +182,7 @@ test "pull from headers" {
 
 test "get the tail from here" {
     const haystack = "https://ziglang.org/builds/zig-linux-x86_64-0.11.0-dev.4003+c6aa29b6f.tar.xz";
-    const needle = "builds/";
-    const found = tailAfterNeedle(u8, haystack, needle);
+    const found = tailAfterNeedle(u8, haystack);
 
     try expectEqualStrings(
         "zig-linux-x86_64-0.11.0-dev.4003+c6aa29b6f.tar.xz",
