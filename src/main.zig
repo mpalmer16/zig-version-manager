@@ -2,6 +2,8 @@ const std = @import("std");
 const process = @import("process.zig");
 const Context = @import("context.zig").Context;
 
+const HttpClient = @import("client/HttpClient.zig");
+
 const log = std.log;
 const RunCommand = process.RunCommand;
 const command = RunCommand.command;
@@ -11,9 +13,11 @@ pub fn main() !void {
     defer arena.deinit();
 
     const allocator = arena.allocator();
-    var client = std.http.Client{ .allocator = allocator };
 
-    const context = Context.new(allocator, &client);
+    var hc = HttpClient.new(allocator);
+    var http_client = hc.init();
+
+    const context = Context.new(allocator, http_client);
 
     if (context.systemHasLatest()) {
         log.info("system already has latest - nothing left to do", .{});

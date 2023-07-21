@@ -1,5 +1,6 @@
 const std = @import("std");
 const config = @import("config.zig").config;
+const ClientInterface = @import("client/ClientInterface.zig");
 
 const json = std.json;
 const panic = std.debug.panic;
@@ -19,9 +20,9 @@ pub const Context = struct {
     zigrc: []const u8,
     install_dir: []const u8,
     allocator: std.mem.Allocator,
-    client: *std.http.Client,
+    client: ClientInterface,
 
-    pub fn new(allocator: std.mem.Allocator, client: *std.http.Client) Self {
+    pub fn new(allocator: std.mem.Allocator, client: ClientInterface) Self {
         const versions_uri = parseUri(config.VERSION_INFO_URI);
         const tarball_uri_str = parseTarballStr(allocator, client, versions_uri);
         const tarball_uri = parseUri(tarball_uri_str);
@@ -69,7 +70,7 @@ fn parseUri(str: []const u8) std.Uri {
     };
 }
 
-fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri) []u8 {
+fn parseTarballStr(allocator: std.mem.Allocator, client: ClientInterface, uri: std.Uri) []u8 {
     const version_info = fetchData(allocator, client, uri);
     defer allocator.free(version_info);
 
@@ -95,7 +96,7 @@ fn parseTarballStr(allocator: std.mem.Allocator, client: *std.http.Client, uri: 
     };
 }
 
-fn fetchData(allocator: std.mem.Allocator, client: *std.http.Client, uri: std.Uri) []const u8 {
+fn fetchData(allocator: std.mem.Allocator, client: ClientInterface, uri: std.Uri) []const u8 {
     log.info("fetching {any}", .{uri});
     var headers = std.http.Headers{ .allocator = allocator };
     defer headers.deinit();
