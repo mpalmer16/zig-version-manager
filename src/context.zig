@@ -105,23 +105,23 @@ fn fetchData(allocator: std.mem.Allocator, client: ClientInterface, uri: std.Uri
         panic("could not append headers: {any}", .{err});
     };
 
-    var req = client.request(.GET, uri, headers, .{}) catch |err| {
+    client.request(.GET, uri, headers, .{}) catch |err| {
         panic("could not make client request: {any}", .{err});
     };
-    defer req.deinit();
+    defer client.deinit();
 
-    req.start() catch |err| {
+    client.start() catch |err| {
         panic("could not start client request: {any}", .{err});
     };
-    req.wait() catch |err| {
+    client.wait() catch |err| {
         panic("could not wait for client request: {any}", .{err});
     };
 
-    const max_size = if (req.response.content_length) |size| size else 40000;
+    const max_size = if (client.response().content_length) |size| size else 40000;
 
     log.info("fetching size {d}", .{max_size});
 
-    return req.reader().readAllAlloc(allocator, max_size) catch |err| {
+    return client.reader().readAllAlloc(allocator, max_size) catch |err| {
         panic("Could not read response: {any} with size {d}\n", .{ err, max_size });
     };
 }
