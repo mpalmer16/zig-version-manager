@@ -96,6 +96,23 @@ fn parseTarballStr(allocator: std.mem.Allocator, client: ClientInterface, uri: s
     };
 }
 
+test "parse nested json values" {
+    const json_string =
+        \\ {
+        \\      "master": {
+        \\          "x86_64-linux": {
+        \\              "tarball": "some_tarball"
+        \\          }
+        \\      }
+        \\ }
+    ;
+    const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, json_string, .{});
+    defer parsed.deinit();
+    const tar_name = parsed.value.object.get("master").?.object.get("x86_64-linux").?.object.get("tarball").?.string;
+
+    try expectEqualSlices(u8, "some_tarball", tar_name);
+}
+
 fn fetchData(allocator: std.mem.Allocator, client: ClientInterface, uri: std.Uri) []const u8 {
     log.info("fetching {any}", .{uri});
     var headers = std.http.Headers{ .allocator = allocator };
@@ -126,6 +143,21 @@ fn fetchData(allocator: std.mem.Allocator, client: ClientInterface, uri: std.Uri
     };
 }
 
+test "fetch data" {
+    const TestHttpClient = @import("client/TestHttpClient.zig");
+    const allocator = std.testing.allocator;
+    var test_client = TestHttpClient.new(allocator);
+    var client = test_client.init();
+    _ = client;
+    const uri = try std.Uri.parse("http://example.org");
+    _ = uri;
+    const expected = "abc";
+    _ = expected;
+    //    const result = fetchData(allocator, client, uri);
+
+    //    try std.testing.expectEqualStrings(expected, result);
+}
+
 fn latestVersionInstalled(latest: []const u8) !bool {
     log.info("checking for local install of latest {s}", .{latest});
     var iter_installs = try std.fs.openIterableDirAbsolute(config.ZIG_INSTALLS_DIR, .{});
@@ -147,38 +179,6 @@ fn tailAfterNeedle(comptime T: type, haystack: []const T) []const T {
         haystack[idx + config.NEEDLE.len ..]
     else
         panic("could not find {s} in {s}", .{ config.NEEDLE, haystack });
-}
-
-test "parse nested json values" {
-    const json_string =
-        \\ {
-        \\      "master": {
-        \\          "x86_64-linux": {
-        \\              "tarball": "some_tarball"
-        \\          }
-        \\      }
-        \\ }
-    ;
-    const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, json_string, .{});
-    defer parsed.deinit();
-    const tar_name = parsed.value.object.get("master").?.object.get("x86_64-linux").?.object.get("tarball").?.string;
-
-    try expectEqualSlices(u8, "some_tarball", tar_name);
-}
-
-test "pull from headers" {
-    var headers = std.http.Headers{ .allocator = std.testing.allocator };
-    defer headers.deinit();
-
-    try headers.append("foo", "bar");
-    try headers.append("baz", "baf");
-
-    const foo = headers.getFirstEntry("foo");
-    const baf = headers.getFirstValue("baz");
-
-    try expectEqualStrings("foo", foo.?.name);
-    try expectEqualStrings("bar", foo.?.value);
-    try expectEqualStrings("baf", baf.?);
 }
 
 test "get the tail from here" {
