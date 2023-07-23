@@ -11,6 +11,10 @@ const Response = Client.Response;
 
 const Self = @This();
 
+/// This is not a good way to do this, and probably becoming
+/// too "hacky" to be usable.  It remains to me an interesting
+/// attempt, though, and I will leave it as a reminder of what
+/// not to do until I get tired of looking at it.
 internal_allocator: std.mem.Allocator,
 internal_client: Client,
 internal_request: Request = undefined,
