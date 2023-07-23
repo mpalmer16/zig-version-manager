@@ -10,10 +10,18 @@ pub fn CommandRunner() type {
         const Self = @This();
 
         commands: []RunCommand,
+        allocator: std.mem.Allocator,
 
-        pub fn run(self: Self, allocator: std.mem.Allocator) void {
+        pub fn new(commands: []RunCommand, allocator: std.mem.Allocator) Self {
+            return Self{
+                .commands = commands,
+                .allocator = allocator,
+            };
+        }
+
+        pub fn run(self: Self) void {
             for (self.commands) |command| {
-                processCommand(command.p, command.arg, allocator, command.data, command.dest);
+                processCommand(command.p, command.arg, self.allocator, command.data, command.dest);
             }
         }
     };

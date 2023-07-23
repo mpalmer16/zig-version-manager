@@ -31,7 +31,6 @@ pub fn main() !void {
             command(.cleanup_directory, context.short_name, null, null),
             command(.write_to_file, context.zigrc, context.export_line, null),
         };
-        const cr = process.CommandRunner(){ .commands = &commands };
-        cr.run(allocator);
+        process.CommandRunner().new(&commands, allocator).run();
     }
 }
