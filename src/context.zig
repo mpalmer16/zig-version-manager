@@ -14,7 +14,7 @@ pub const Context = struct {
 
     tarball_uri_str: []const u8,
     tarball_uri: std.Uri,
-    name: []const u8,
+    filename_with_ext: []const u8,
     short_name: []const u8,
     export_line: []const u8,
     zigrc: []const u8,
@@ -33,7 +33,7 @@ pub const Context = struct {
         return Self{
             .tarball_uri_str = tarball_uri_str,
             .tarball_uri = tarball_uri,
-            .name = name,
+            .filename_with_ext = name,
             .short_name = short_name,
             .export_line = export_line,
             .zigrc = config.ZIGRC,
